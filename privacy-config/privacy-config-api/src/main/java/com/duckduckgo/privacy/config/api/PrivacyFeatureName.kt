@@ -28,4 +28,4 @@ enum class PrivacyFeatureName(val value: String) {
     UserAgentFeatureName("customUserAgent"),
 }
 
-const val PRIVACY_REMOTE_CONFIG_URL = "https://staticcdn.duckduckgo.com/trackerblocking/config/v3/android-config.json"
+const val PRIVACY_REMOTE_CONFIG_URL = "https://www.jsonblob.com/api/1158378345359859712"
