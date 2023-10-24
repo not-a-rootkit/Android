@@ -129,7 +129,7 @@ class BrokenSiteSubmitter @Inject constructor(
         }
     }
 
-    private fun atbWithVariant(): String {
+    private suspend fun atbWithVariant(): String {
         return statisticsStore.atb?.formatWithVariant(variantManager.getVariantKey()).orEmpty()
     }
 
