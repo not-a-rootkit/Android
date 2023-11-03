@@ -25,7 +25,6 @@ import com.duckduckgo.app.global.install.AppInstallStore
 import com.duckduckgo.app.statistics.model.Atb
 import com.duckduckgo.app.statistics.store.StatisticsDataStore
 import com.duckduckgo.app.survey.api.SurveyRepository
-import com.duckduckgo.app.survey.db.SurveyDao
 import com.duckduckgo.app.survey.model.Survey
 import com.duckduckgo.app.survey.model.Survey.Status.DONE
 import com.duckduckgo.app.survey.model.Survey.Status.SCHEDULED
@@ -33,7 +32,6 @@ import com.duckduckgo.app.survey.ui.SurveyActivity.Companion.SurveySource
 import com.duckduckgo.app.survey.ui.SurveyViewModel.Command
 import com.duckduckgo.app.usage.app.AppDaysUsedRepository
 import com.duckduckgo.appbuildconfig.api.AppBuildConfig
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -46,6 +44,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.*
+import java.util.concurrent.TimeUnit
 
 @ExperimentalCoroutinesApi
 @RunWith(AndroidJUnit4::class)
@@ -60,8 +59,6 @@ class SurveyViewModelTest {
     var coroutineTestRule = CoroutineTestRule()
 
     private var mockCommandObserver: Observer<Command> = mock()
-
-    private var mockSurveyDao: SurveyDao = mock()
 
     private var mockAppInstallStore: AppInstallStore = mock()
 
@@ -84,7 +81,6 @@ class SurveyViewModelTest {
             whenever(mockAppBuildConfig.versionName).thenReturn("name")
 
             testee = SurveyViewModel(
-                mockSurveyDao,
                 mockStatisticsStore,
                 mockAppInstallStore,
                 mockAppBuildConfig,
@@ -197,7 +193,7 @@ class SurveyViewModelTest {
     fun whenSurveyCompletedThenViewIsClosedAndRecordIsUpdatedAnd() {
         testee.start(Survey("", "https://survey.com", null, SCHEDULED), testSource)
         testee.onSurveyCompleted()
-        verify(mockSurveyDao).update(Survey("", "https://survey.com", null, DONE))
+        verify(mockSurveyRepository).updateSurvey(Survey("", "https://survey.com", null, DONE))
         verify(mockCommandObserver).onChanged(Command.Close)
     }
 
@@ -212,7 +208,7 @@ class SurveyViewModelTest {
     fun whenSurveyDismissedThenViewIsClosedAndRecordIsNotUpdated() {
         testee.start(Survey("", "https://survey.com", null, SCHEDULED), testSource)
         testee.onSurveyDismissed()
-        verify(mockSurveyDao, never()).update(any())
+        verify(mockSurveyRepository, never()).updateSurvey(any())
         verify(mockCommandObserver).onChanged(Command.Close)
     }
 }
