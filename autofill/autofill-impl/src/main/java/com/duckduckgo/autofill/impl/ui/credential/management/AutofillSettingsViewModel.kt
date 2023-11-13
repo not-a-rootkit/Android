@@ -62,6 +62,7 @@ import com.duckduckgo.autofill.impl.ui.credential.management.searching.Credentia
 import com.duckduckgo.autofill.impl.ui.credential.management.viewing.duckaddress.DuckAddressIdentifier
 import com.duckduckgo.autofill.impl.ui.credential.repository.DuckAddressStatusRepository
 import com.duckduckgo.autofill.impl.ui.credential.repository.DuckAddressStatusRepository.ActivationStatusResult
+import com.duckduckgo.autofill.impl.ui.credential.saving.declines.AutofillDeclineCounter
 import com.duckduckgo.di.scopes.ActivityScope
 import com.duckduckgo.sync.api.engine.SyncEngine
 import com.duckduckgo.sync.api.engine.SyncEngine.SyncTrigger.FEATURE_READ
@@ -93,6 +94,7 @@ class AutofillSettingsViewModel @Inject constructor(
     private val emailManager: EmailManager,
     private val duckAddressIdentifier: DuckAddressIdentifier,
     private val syncEngine: SyncEngine,
+    private val declineCounter: AutofillDeclineCounter,
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(ViewState())
@@ -403,6 +405,8 @@ class AutofillSettingsViewModel @Inject constructor(
             rawUrl = updatedCredentials.domain ?: "",
             credentials = updatedCredentials,
         )?.let { savedCredentials ->
+            declineCounter.disableDeclineCounter()
+
             _viewState.value = viewState.value.copy(
                 credentialMode = Viewing(
                     credentialsViewed = savedCredentials,

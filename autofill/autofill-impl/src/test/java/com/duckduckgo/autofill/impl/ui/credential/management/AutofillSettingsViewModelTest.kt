@@ -41,6 +41,7 @@ import com.duckduckgo.autofill.impl.ui.credential.management.searching.Credentia
 import com.duckduckgo.autofill.impl.ui.credential.management.viewing.duckaddress.DuckAddressIdentifier
 import com.duckduckgo.autofill.impl.ui.credential.management.viewing.duckaddress.RealDuckAddressIdentifier
 import com.duckduckgo.autofill.impl.ui.credential.repository.DuckAddressStatusRepository
+import com.duckduckgo.autofill.impl.ui.credential.saving.declines.AutofillDeclineCounter
 import kotlin.reflect.KClass
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -74,6 +75,7 @@ class AutofillSettingsViewModelTest {
     private val faviconManager: FaviconManager = mock()
     private val webUrlIdentifier: WebUrlIdentifier = mock()
     private val duckAddressIdentifier: DuckAddressIdentifier = RealDuckAddressIdentifier()
+    private val declineCounter: AutofillDeclineCounter = mock()
     private val testee = AutofillSettingsViewModel(
         autofillStore = mockStore,
         clipboardInteractor = clipboardInteractor,
@@ -87,6 +89,7 @@ class AutofillSettingsViewModelTest {
         duckAddressStatusRepository = duckAddressStatusRepository,
         duckAddressIdentifier = duckAddressIdentifier,
         syncEngine = mock(),
+        declineCounter = declineCounter,
     )
 
     @Before
@@ -576,6 +579,16 @@ class AutofillSettingsViewModelTest {
             assertEquals(false, this.awaitItem().showAutofillEnabledToggle)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun whenCredentialsManuallySavedThenDeclineCounterDisabled() = runTest {
+        val creds = someCredentials()
+        whenever(mockStore.saveCredentials(any(), eq(creds))).thenReturn(creds)
+
+        testee.onCreateNewCredentials()
+        testee.saveOrUpdateCredentials(creds)
+        verify(declineCounter).disableDeclineCounter()
     }
 
     private suspend fun configureStoreToHaveThisManyCredentialsStored(value: Int) {
