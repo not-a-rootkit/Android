@@ -21,7 +21,7 @@ import com.duckduckgo.app.di.AppCoroutineScope
 import com.duckduckgo.app.global.DispatcherProvider
 import com.duckduckgo.app.global.extractDomain
 import com.duckduckgo.di.scopes.AppScope
-import com.duckduckgo.privacy.config.api.DrmBlock
+import com.duckduckgo.site.permissions.api.DrmBlock
 import com.duckduckgo.site.permissions.store.SitePermissionsPreferences
 import com.duckduckgo.site.permissions.store.sitepermissions.SitePermissionAskSettingType
 import com.duckduckgo.site.permissions.store.sitepermissions.SitePermissionsDao
