@@ -137,6 +137,7 @@ subprojects {
                         if (projectPath.endsWith("api")
                                 && dependencyPath.endsWith("api")
                                 && dependencyPath != ":feature-toggles-api"
+                                && dependencyPath != ":js-messaging-api"
                                 && dependencyPath != ":navigation-api"
                         ) {
                             throw new GradleException("Invalid dependency $projectPath -> $dependencyPath. " +

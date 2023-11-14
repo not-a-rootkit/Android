@@ -22,11 +22,13 @@ import androidx.core.net.toUri
 import com.duckduckgo.app.global.DispatcherProvider
 import com.duckduckgo.contentscopescripts.impl.CoreContentScopeScripts
 import com.duckduckgo.di.scopes.FragmentScope
+import com.duckduckgo.js.messaging.api.JsCallbackData
 import com.duckduckgo.js.messaging.api.JsMessage
 import com.duckduckgo.js.messaging.api.JsMessageCallback
 import com.duckduckgo.js.messaging.api.JsMessageHandler
 import com.duckduckgo.js.messaging.api.JsMessageHelper
 import com.duckduckgo.js.messaging.api.JsMessaging
+import com.duckduckgo.js.messaging.api.JsRequestResponse
 import com.squareup.anvil.annotations.ContributesBinding
 import com.squareup.moshi.Moshi
 import java.util.*
@@ -54,12 +56,12 @@ class ContentScopeScriptsJsMessaging @Inject constructor(
     override val secret: String = coreContentScopeScripts.secret
     override val allowedDomains: List<String> = emptyList()
 
-    private val handlers: List<JsMessageHandler> = listOf()
+    private val handlers: List<JsMessageHandler> = listOf(ShimMessage())
 
     @JavascriptInterface
     override fun process(message: String, secret: String) {
         try {
-            logcat(DEBUG) { "Message received $message" }
+            logcat(DEBUG) { "Marcos Message received $message" }
             val adapter = moshi.adapter(JsMessage::class.java)
             val jsMessage = adapter.fromJson(message)
             val domain = runBlocking(dispatcherProvider.main()) {
@@ -69,16 +71,11 @@ class ContentScopeScriptsJsMessaging @Inject constructor(
                 if (context == jsMessage.context && (allowedDomains.isEmpty() || allowedDomains.contains(domain))) {
                     handlers.firstOrNull {
                         it.method == jsMessage.method && it.featureName == jsMessage.featureName
-                    }?.let {
-                        val response = it.process(jsMessage, secret, webView, jsMessageCallback)
-                        response?.let {
-                            jsMessageHelper.sendJsResponse(response, callbackName, secret, webView)
-                        }
-                    }
+                    }?.process(jsMessage, secret, callbackName, webView, jsMessageCallback)
                 }
             }
         } catch (e: Exception) {
-            logcat { "Exception is ${e.message}" }
+            logcat { "Marcos Exception is ${e.stackTraceToString()}" }
         }
     }
 
@@ -93,23 +90,28 @@ class ContentScopeScriptsJsMessaging @Inject constructor(
         // NOOP
     }
 
+    override fun onResponse(response: JsCallbackData) {
+        val jsResponse = JsRequestResponse.Success(
+            context = context,
+            featureName = response.featureName,
+            method = response.method,
+            id = response.id,
+            result = response.params,
+        )
+        jsMessageHelper.sendJsResponse(jsResponse, callbackName, secret, webView)
+    }
+
     inner class ShimMessage : JsMessageHandler {
 
-        override fun process(jsMessage: JsMessage, secret: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
+        override fun process(jsMessage: JsMessage, secret: String, jsCallbackName: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
             if (jsMessage.featureName != featureName && jsMessage.method != method) return null
             if (jsMessage.id == null) return null
-            logcat { "Marcos sending error" }
-            return JsRequestResponse.Success(
-                context = jsMessage.context,
-                featureName = featureName,
-                method = method,
-                id = jsMessage.id!!,
-                result = JSONObject("""{ "failure": {"name":"AbortError", "message":"Aborted by user"} }"""),
-            )
+            jsMessageCallback.process(featureName, method, jsMessage.id!!, jsMessage.params)
+            return null
         }
 
         override val allowedDomains: List<String> = emptyList()
-        override val featureName: String = "webShareShim"
-        override val method: String = "web-share"
+        override val featureName: String = "webCompat"
+        override val method: String = "webShare"
     }
 }

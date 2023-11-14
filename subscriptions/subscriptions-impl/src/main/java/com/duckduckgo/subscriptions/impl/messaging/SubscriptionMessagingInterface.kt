@@ -22,6 +22,7 @@ import androidx.core.net.toUri
 import com.duckduckgo.app.di.AppCoroutineScope
 import com.duckduckgo.app.global.DispatcherProvider
 import com.duckduckgo.di.scopes.ActivityScope
+import com.duckduckgo.js.messaging.api.JsCallbackData
 import com.duckduckgo.js.messaging.api.JsMessage
 import com.duckduckgo.js.messaging.api.JsMessageCallback
 import com.duckduckgo.js.messaging.api.JsMessageHandler
@@ -40,10 +41,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.logcat
 import org.json.JSONObject
-
-interface SubscriptionCallback {
-    fun backToSettings()
-}
 
 @ContributesBinding(ActivityScope::class)
 @Named("Subscriptions")
@@ -77,7 +74,7 @@ class SubscriptionMessagingInterface @Inject constructor(
                     handlers.firstOrNull {
                         it.method == jsMessage.method && it.featureName == jsMessage.featureName
                     }?.let {
-                        val response = it.process(jsMessage, secret, webView, jsMessageCallback)
+                        val response = it.process(jsMessage, secret, callbackName, webView, jsMessageCallback)
                         response?.let {
                             jsMessageHelper.sendJsResponse(response, callbackName, secret, webView)
                         }
@@ -100,15 +97,19 @@ class SubscriptionMessagingInterface @Inject constructor(
         // NOOP
     }
 
+    override fun onResponse(response: JsCallbackData) {
+        // NOOP
+    }
+
     override val context: String = "subscriptionPages"
     override val callbackName: String = "messageCallback"
     override val secret: String = "duckduckgo-android-messaging-secret"
     override val allowedDomains: List<String> = listOf("abrown.duckduckgo.com")
 
     inner class BackToSettingsMessage : JsMessageHandler {
-        override fun process(jsMessage: JsMessage, secret: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
+        override fun process(jsMessage: JsMessage, secret: String, jsCallbackName: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
             if (jsMessage.featureName != featureName && jsMessage.method != method) return null
-            jsMessageCallback.process(method)
+            jsMessageCallback.process(featureName, method, jsMessage.id!!, jsMessage.params)
             return null
         }
 
@@ -122,7 +123,7 @@ class SubscriptionMessagingInterface @Inject constructor(
         private val dispatcherProvider: DispatcherProvider,
     ) : JsMessageHandler {
 
-        override fun process(jsMessage: JsMessage, secret: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
+        override fun process(jsMessage: JsMessage, secret: String, jsCallbackName: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
             if (jsMessage.featureName != featureName && jsMessage.method != method) return null
             if (jsMessage.id == null) return null
 
@@ -163,7 +164,7 @@ class SubscriptionMessagingInterface @Inject constructor(
         @AppCoroutineScope private val appCoroutineScope: CoroutineScope,
         private val dispatcherProvider: DispatcherProvider,
     ) : JsMessageHandler {
-        override fun process(jsMessage: JsMessage, secret: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
+        override fun process(jsMessage: JsMessage, secret: String, jsCallbackName: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse? {
             if (jsMessage.featureName != featureName && jsMessage.method != method) return null
             try {
                 val token = jsMessage.params.getString("token")

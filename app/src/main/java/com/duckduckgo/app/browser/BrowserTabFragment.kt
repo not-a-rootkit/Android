@@ -133,6 +133,7 @@ import com.duckduckgo.app.browser.ui.dialogs.LaunchInExternalAppOptions
 import com.duckduckgo.app.browser.urlextraction.DOMUrlExtractor
 import com.duckduckgo.app.browser.urlextraction.UrlExtractingWebView
 import com.duckduckgo.app.browser.urlextraction.UrlExtractingWebViewClient
+import com.duckduckgo.app.browser.webshare.WebShareChooser
 import com.duckduckgo.app.browser.webview.enableDarkMode
 import com.duckduckgo.app.browser.webview.enableLightMode
 import com.duckduckgo.app.cta.ui.*
@@ -144,6 +145,7 @@ import com.duckduckgo.app.fire.fireproofwebsite.data.website
 import com.duckduckgo.app.global.DispatcherProvider
 import com.duckduckgo.app.global.DuckDuckGoFragment
 import com.duckduckgo.app.global.FragmentViewModelFactory
+import com.duckduckgo.app.global.JSONObjectAdapter
 import com.duckduckgo.app.global.extensions.html
 import com.duckduckgo.app.global.extensions.websiteFromGeoLocationsApiOrigin
 import com.duckduckgo.app.global.model.PrivacyShield.UNKNOWN
@@ -206,7 +208,9 @@ import com.duckduckgo.downloads.api.DOWNLOAD_SNACKBAR_LENGTH
 import com.duckduckgo.downloads.api.DownloadCommand
 import com.duckduckgo.downloads.api.FileDownloader
 import com.duckduckgo.downloads.api.FileDownloader.PendingFileDownload
+import com.duckduckgo.js.messaging.api.JsCallbackData
 import com.duckduckgo.js.messaging.api.JsMessageCallback
+import com.duckduckgo.js.messaging.api.JsMessageHelper
 import com.duckduckgo.js.messaging.api.JsMessaging
 import com.duckduckgo.mobile.android.app.tracking.ui.AppTrackerOnboardingActivityWithEmptyParamsParams
 import com.duckduckgo.mobile.android.ui.store.BrowserAppTheme
@@ -230,6 +234,7 @@ import com.duckduckgo.voice.api.VoiceSearchLauncher
 import com.duckduckgo.voice.api.VoiceSearchLauncher.Source.BROWSER
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
+import com.squareup.moshi.Moshi
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
@@ -237,6 +242,7 @@ import javax.inject.Provider
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.cancellable
+import org.json.JSONObject
 import timber.log.Timber
 
 @InjectWith(FragmentScope::class)
@@ -407,6 +413,9 @@ class BrowserTabFragment :
     @Inject
     lateinit var systemAutofillUsageMonitor: SystemAutofillUsageMonitor
 
+    @Inject
+    lateinit var jsMessageHelper: JsMessageHelper
+
     /**
      * We use this to monitor whether the user was seeing the in-context Email Protection signup prompt
      * This is needed because the activity stack will be cleared if an external link is opened in our browser
@@ -449,6 +458,8 @@ class BrowserTabFragment :
     private var isActiveTab: Boolean = false
 
     private val downloadMessagesJob = ConflatedJob()
+
+    private val moshi = Moshi.Builder().add(JSONObjectAdapter()).build()
 
     private val viewModel: BrowserTabViewModel by lazy {
         val viewModel = ViewModelProvider(this, viewModelFactory).get(BrowserTabViewModel::class.java)
@@ -697,6 +708,10 @@ class BrowserTabFragment :
     private var automaticFireproofDialog: DaxAlertDialog? = null
 
     private val pulseAnimation: PulseAnimation = PulseAnimation(this)
+    private var previewRequest =
+        registerForActivityResult(WebShareChooser()) {
+            contentScopeScripts.onResponse(it)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -2106,10 +2121,13 @@ class BrowserTabFragment :
             contentScopeScripts.register(
                 it,
                 object : JsMessageCallback(this) {
-                    override fun process(method: String) {
-                        runCatching {
-                            callback.javaClass.getDeclaredMethod(method)
-                        }.getOrNull()?.invoke(callback)
+                    override fun process(featureName: String, method: String, id: String, data: JSONObject) {
+                        when (method) {
+                            "webShare" -> webShare(featureName, method, id, data)
+                            else -> {
+                                // NOOP
+                            }
+                        }
                     }
                 },
             )
@@ -2118,6 +2136,10 @@ class BrowserTabFragment :
         if (appBuildConfig.isDebug) {
             WebView.setWebContentsDebuggingEnabled(true)
         }
+    }
+
+    private fun webShare(featureName: String, method: String, id: String, data: JSONObject) {
+        previewRequest.launch(JsCallbackData(data, featureName, method, id))
     }
 
     private fun configureWebViewForAutofill(it: DuckDuckGoWebView) {

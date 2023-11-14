@@ -22,6 +22,8 @@ import org.json.JSONObject
 
 interface JsMessaging {
 
+    fun onResponse(response: JsCallbackData)
+
     /**
      * Method to register the JS interface to the webView instance
      */
@@ -60,7 +62,7 @@ interface JsMessaging {
 }
 
 abstract class JsMessageCallback(val callback: Any) {
-    abstract fun process(method: String)
+    abstract fun process(featureName: String, method: String, id: String, data: JSONObject)
 }
 
 /**
@@ -83,7 +85,7 @@ interface JsMessageHandler {
      * This method processes a [JsMessage] and can return a JsRequestResponse to reply to the message if needed
      * @return `JsRequestResponse` or `null`
      */
-    fun process(jsMessage: JsMessage, secret: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse?
+    fun process(jsMessage: JsMessage, secret: String, jsCallbackName: String, webView: WebView, jsMessageCallback: JsMessageCallback): JsRequestResponse?
 
     /**
      * List of domains where we can process the message
@@ -107,6 +109,13 @@ data class JsMessage(
     val method: String,
     val params: JSONObject,
     val id: String?,
+)
+
+data class JsCallbackData(
+    val params: JSONObject,
+    val featureName: String,
+    val method: String,
+    val id: String,
 )
 
 sealed class JsRequestResponse {
